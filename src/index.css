@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Sekuya&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Outfit", sans-serif;
+  --font-logo: "Sekuya", sans-serif;
+  --color-indigo-50: rgba(0, 210, 196, 0.08);
+  --color-indigo-100: rgba(0, 127, 255, 0.15);
+  --color-indigo-200: rgba(0, 127, 255, 0.25);
+  --color-indigo-500: #007FFF;
+  --color-indigo-600: #0066E0;
+  --color-indigo-700: #002FBE;
+  --color-indigo-800: #00208A;
+  --color-brand-teal: #00D2C4;
+  --color-brand-blue: #007FFF;
+  --color-brand-navy: #002FBE;
+}
+
+@layer utilities {
+  .bank-icon-gradient {
+    background: linear-gradient(135deg, #00D2C4 0%, #007FFF 50%, #002FBE 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}
