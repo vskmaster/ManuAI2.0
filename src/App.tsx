@@ -37,6 +37,12 @@ const manuAiLogo = "/manu_ai_logo.png";
 let globalSupabaseClient: any = null;
 
 export default function App() {
+  const API_BASE = import.meta.env.VITE_API_URL ?? "";
+  const apiUrl = (p: string) => {
+    const base = API_BASE.replace(/\/$/, "");
+    return `${base}${p.startsWith("/") ? p : `/${p}`}`;
+  };
+
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -103,7 +109,7 @@ export default function App() {
     }
 
     // 2. Fetch live service connection statuses from backend
-    fetch("/api/status")
+    fetch(apiUrl("/api/status"))
       .then((res) => res.json())
       .then((status) => {
         setSystemStatus(status);
@@ -111,7 +117,7 @@ export default function App() {
       .catch((err) => console.error("Error fetching system connection status:", err));
 
     // 3. Fetch config and lazy-load Supabase SDK
-    fetch("/api/config")
+    fetch(apiUrl("/api/config"))
       .then((res) => res.json())
       .then(async (config) => {
         const isPlaceholderUrl = (url: string) => {
@@ -348,7 +354,7 @@ export default function App() {
       }, 30000); // 30 seconds timeout
       
       try {
-        const response = await fetch("/api/analyze-missing-details", {
+        const response = await fetch(apiUrl("/api/analyze-missing-details"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -418,7 +424,7 @@ export default function App() {
         mergedInput = `${rawText}\n\n[ADMINISTRATIVE DETAILS SPECIFIED IN TEXT FORM]:\n${extraDetailsList.join("\n")}`;
       }
 
-      const response = await fetch("/api/generate-complaint", {
+      const response = await fetch(apiUrl("/api/generate-complaint"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -453,7 +459,7 @@ export default function App() {
 
   const handleSaveDraftToRecords = async () => {
     try {
-      const response = await fetch("/api/complaints", {
+      const response = await fetch(apiUrl("/api/complaints"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
