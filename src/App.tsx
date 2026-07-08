@@ -498,18 +498,19 @@ export default function App() {
 
   const handleDownloadFile = async (type: "pdf" | "docx") => {
     try {
-      const response = await fetch(`/api/generate-${type}`, {
+      const response = await fetch(apiUrl(`/api/generate-${type}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: generatedTitle,
-          subject: generatedSubject,
-          body: generatedBody,
-          profile,
-          evidenceImages,
-          problemImages,
-        }),
-      });
+                templateId: selectedTemplateId || "",
+                title: generatedTitle,
+                subject: generatedSubject,
+                body: generatedBody,
+                profile,
+                evidenceImages,
+                problemImages,
+              }),
+            });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -735,19 +736,20 @@ export default function App() {
 
   const reviewAndDownloadFile = async (complaint: any, type: "pdf" | "docx") => {
     try {
-      const response = await fetch(`/api/generate-${type}`, {
+      const response = await fetch(apiUrl(`/api/generate-${type}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: complaint.title,
-          subject: complaint.subject,
-          body: complaint.body,
-          profile: complaint.profile,
-          date: new Date(complaint.createdAt).toLocaleDateString("en-IN", { dateStyle: "long" }),
-          evidenceImages: complaint.evidenceImages || [],
-          problemImages: complaint.problemImages || [],
-        }),
-      });
+                templateId: complaint.templateId || "",
+                title: complaint.title,
+                subject: complaint.subject,
+                body: complaint.body,
+                profile: complaint.profile,
+                date: new Date(complaint.createdAt).toLocaleDateString("en-IN", { dateStyle: "long" }),
+                evidenceImages: complaint.evidenceImages || [],
+                problemImages: complaint.problemImages || [],
+              }),
+            });
 
       if (!response.ok) throw new Error("Document generation failed");
 

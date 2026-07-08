@@ -43,18 +43,19 @@ export default function ComplaintHistory({ onSelectComplaint }: ComplaintHistory
 
   const downloadFile = async (complaint: any, type: "pdf" | "docx") => {
     try {
-      const response = await fetch(`/api/generate-${type}`, {
+      const response = await fetch(apiUrl(`/api/generate-${type}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: complaint.title,
-          subject: complaint.subject,
-          body: complaint.body,
-          profile: complaint.profile,
-          date: new Date(complaint.createdAt).toLocaleDateString("en-IN", { dateStyle: "long" }),
-          evidenceImages: complaint.evidenceImages || [],
-        }),
-      });
+                templateId: complaint.templateId || "",
+                title: complaint.title,
+                subject: complaint.subject,
+                body: complaint.body,
+                profile: complaint.profile,
+                date: new Date(complaint.createdAt).toLocaleDateString("en-IN", { dateStyle: "long" }),
+                evidenceImages: complaint.evidenceImages || [],
+              }),
+            });
 
       if (!response.ok) throw new Error(`Failed to generate ${type}`);
 
