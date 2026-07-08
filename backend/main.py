@@ -427,6 +427,48 @@ async def health():
 async def api_health():
     return {"status":"ok"}
 
+@app.get("/api/config")
+async def get_config():
+    # Provide minimal, client-safe configuration the frontend needs
+    return {
+        "supabaseUrl": settings.SUPABASE_URL,
+        "supabaseAnonKey": settings.SUPABASE_ANON_KEY
+    }
+
+@app.get("/api/status")
+async def get_status():
+    # Quick service connectivity summary for frontend status indicators
+    mongo_status = "offline"
+    try:
+        client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=2000)
+        client.server_info()
+        mongo_status = "connected"
+    except Exception:
+        mongo_status = "offline"
+
+    cloud_status = "connected" if (settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_API_KEY and settings.CLOUDINARY_API_SECRET) else "offline_local"
+    hugging_status = "connected" if os.getenv("HUGGINGFACE_API_KEY") else "none"
+
+    return {
+        "mongoDb": mongo_status,
+        "cloudinary": cloud_status,
+        "huggingFace": hugging_status
+    }
+
+@app.post("/api/analyze-missing-details")
+async def analyze_missing_details(payload: dict):
+    raw = (payload or {}).get("rawInput", "") or ""
+    missing = []
+    low = raw.lower()
+    # Very small heuristic: look for personal name and phone-like digits
+    if "name" not in low and not any(word in low for word in ["mr ", "mrs ", "ms ", "name:"]):
+        missing.append({"key": "name", "label": "Full Name"})
+    if not any(ch.isdigit() for ch in raw):
+        missing.append({"key": "phone", "label": "Phone Number"})
+
+    needs_more = len(missing) > 0
+    return {"needsMoreDetails": needs_more, "missingFields": missing}
+
 if __name__ == "__main__":
     import uvicorn, os
     port = int(os.getenv("PORT", "8000"))
