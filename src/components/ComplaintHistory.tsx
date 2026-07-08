@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+const apiUrl = (p: string) => { const base = API_BASE.replace(/\/$/, ""); return `${base}${p.startsWith("/") ? p : `/${p}`}`; };
 import { Search, Calendar, FileText, ArrowDownToLine, Trash2, Eye, ExternalLink, Clock, FolderGit2 } from "lucide-react";
 import { GeneratedDocument } from "../types";
 
@@ -14,7 +16,7 @@ export default function ComplaintHistory({ onSelectComplaint }: ComplaintHistory
   const fetchComplaints = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/complaints");
+      const res = await fetch(apiUrl("/api/complaints"));
       if (res.ok) {
         const data = await res.json();
         setComplaints(data);
