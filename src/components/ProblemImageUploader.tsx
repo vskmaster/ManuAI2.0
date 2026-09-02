@@ -92,9 +92,6 @@ export default function ProblemImageUploader({ onImagesChange, maxFiles = 2 }: P
           <ShieldAlert className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           <span>Attached Problem Upload Images</span>
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Provide photographic proof of the issue. Use this specifically for the <b>Problem Site Image</b> and <b>Problem Area Image</b> to embed into your complaint PDF annexure.
-        </p>
       </div>
 
       {error && (

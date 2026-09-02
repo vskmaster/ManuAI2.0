@@ -1,43 +1,41 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  ShieldCheck,
-  PlusCircle,
-  FileClock,
-  User,
-  LogOut,
-  Sun,
-  Moon,
-  Sparkles,
-  ChevronRight,
-  ChevronLeft,
-  RefreshCw,
-  FileCheck2,
-  Mail,
-  Lock,
-  ArrowRight,
-  Info,
-  CheckCircle,
-  FolderSync,
-  Fingerprint,
-  Printer,
-  Share2,
-  FileText,
-  Save,
-} from "lucide-react";
-import AudioRecorder from "./components/AudioRecorder";
-import ProfileForm from "./components/ProfileForm";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
+import PlusCircle from "lucide-react/dist/esm/icons/plus-circle";
+import FileClock from "lucide-react/dist/esm/icons/file-clock";
+import User from "lucide-react/dist/esm/icons/user";
+import LogOut from "lucide-react/dist/esm/icons/log-out";
+import Sun from "lucide-react/dist/esm/icons/sun";
+import Moon from "lucide-react/dist/esm/icons/moon";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import FileCheck2 from "lucide-react/dist/esm/icons/file-check-2";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import Lock from "lucide-react/dist/esm/icons/lock";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import Info from "lucide-react/dist/esm/icons/info";
+import FolderSync from "lucide-react/dist/esm/icons/folder-sync";
+import Fingerprint from "lucide-react/dist/esm/icons/fingerprint";
+import Printer from "lucide-react/dist/esm/icons/printer";
+import Share2 from "lucide-react/dist/esm/icons/share-2";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Save from "lucide-react/dist/esm/icons/save";
+import { lazy, Suspense } from "react";
+const AudioRecorder = lazy(() => import("./components/AudioRecorder"));
+const ProfileForm = lazy(() => import("./components/ProfileForm"));
+const ImageUploader = lazy(() => import("./components/ImageUploader"));
+const ProblemImageUploader = lazy(() => import("./components/ProblemImageUploader"));
+const ComplaintHistory = lazy(() => import("./components/ComplaintHistory"));
 import TemplateGrid, { templates } from "./components/TemplateGrid";
-import ImageUploader from "./components/ImageUploader";
-import ProblemImageUploader from "./components/ProblemImageUploader";
-import ComplaintHistory from "./components/ComplaintHistory";
 import { UserProfile } from "./types";
 const manuAiLogo = "/manu_ai_logo.png";
 
 let globalSupabaseClient: any = null;
+let globalSupabasePromise: any = null;
 
 export default function App() {
-  const API_BASE = import.meta.env.VITE_API_URL ?? "";
+  const API_BASE = import.meta.env.VITE_API_URL || "";
   const apiUrl = (p: string) => {
     const base = API_BASE.replace(/\/$/, "");
     return `${base}${p.startsWith("/") ? p : `/${p}`}`;
@@ -53,11 +51,8 @@ export default function App() {
 
   // Advanced configurations & connected integrations state
   const [supabaseClient, setSupabaseClient] = useState<any>(null);
-  const [aiEngine, setAiEngine] = useState<"gemini" | "huggingface">("gemini");
   const [systemStatus, setSystemStatus] = useState({
-    mongoDb: "connecting",
-    cloudinary: "checking",
-    huggingFace: "checking"
+    mongoDb: "connecting"
   });
 
   // Landing page multi-view states
@@ -75,6 +70,7 @@ export default function App() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [rawText, setRawText] = useState("");
   const [language, setLanguage] = useState("English");
+  const [draftLanguage, setDraftLanguage] = useState("English");
   const [evidenceImages, setEvidenceImages] = useState<string[]>([]);
   const [problemImages, setProblemImages] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -96,6 +92,11 @@ export default function App() {
   // Modals / Selected Complaint for review
   const [selectedComplaintReview, setSelectedComplaintReview] = useState<any | null>(null);
 
+  // Profile banner dismissal (non-blocking nudge)
+  const [profileBannerDismissed, setProfileBannerDismissed] = useState(
+    () => localStorage.getItem("manu_ai_profile_skip") === "true"
+  );
+
   // Initialize Supabase and poll system statuses
   useEffect(() => {
     // 1. Load local mock states as fallback
@@ -114,7 +115,10 @@ export default function App() {
       .then((status) => {
         setSystemStatus(status);
       })
-      .catch((err) => console.error("Error fetching system connection status:", err));
+      .catch(() => {
+        // Backend not reachable — keep default "connecting" status silently
+        console.warn("Backend not reachable — system status check skipped.");
+      });
 
     // 3. Fetch config and lazy-load Supabase SDK
     fetch(apiUrl("/api/config"))
@@ -126,13 +130,17 @@ export default function App() {
           return lower.includes("your-") || lower.includes("your_") || lower.includes("your-project.supabase.co");
         };
         if (config.supabaseUrl && config.supabaseAnonKey && !isPlaceholderUrl(config.supabaseUrl) && !isPlaceholderUrl(config.supabaseAnonKey)) {
-          console.log("Supabase credentials detected! Lazy-loading official SDK...");
           try {
-            if (!globalSupabaseClient) {
-              const { createClient } = await import("@supabase/supabase-js");
-              globalSupabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
+            const globalWindow = window as any;
+            if (!globalWindow.__supabaseClient && !globalWindow.__supabasePromise) {
+              console.log("Supabase credentials detected! Lazy-loading official SDK...");
+              globalWindow.__supabasePromise = import("@supabase/supabase-js").then(({ createClient }) => {
+                globalWindow.__supabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
+                return globalWindow.__supabaseClient;
+              });
             }
-            const client = globalSupabaseClient;
+            
+            const client = globalWindow.__supabaseClient || await globalWindow.__supabasePromise;
             setSupabaseClient(client);
 
             // Fetch current active user session if exists
@@ -174,7 +182,10 @@ export default function App() {
           }
         }
       })
-      .catch((err) => console.error("Error fetching client config:", err));
+      .catch(() => {
+        // Backend not reachable — Supabase init will be skipped
+        console.warn("Backend not reachable — client config fetch skipped.");
+      });
   }, []);
 
   // Theme support
@@ -189,11 +200,15 @@ export default function App() {
   const handleProfileSave = (newProfile: UserProfile) => {
     setProfile(newProfile);
     localStorage.setItem("manu_ai_profile", JSON.stringify(newProfile));
+    // Clear the "skip" flag since profile is now complete
+    localStorage.removeItem("manu_ai_profile_skip");
+    setProfileBannerDismissed(false); // banner won't show anyway since !profile will be false
     setShowSaveToast(true);
     // Auto-dismiss the popup message after 4 seconds
     setTimeout(() => {
       setShowSaveToast(false);
     }, 4000);
+    setActiveTab("draft");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -237,24 +252,7 @@ export default function App() {
         alert(`Login failed: ${err.message || err}`);
       }
     } else {
-      // Local demo fallback
-      setIsLoggedIn(true);
-      localStorage.setItem("manu_ai_logged", "true");
-      
-      const defaultProfile: UserProfile = {
-        name: "Citizen Demo User",
-        fatherName: "Official Citizen",
-        dob: "1990-01-01",
-        gender: "Male",
-        address: "10, Rajaji Salai, Fort St. George",
-        district: "Chennai",
-        state: "Tamil Nadu",
-        pincode: "600009",
-        phone: "9876543210",
-        email: loginEmail
-      };
-      setProfile(defaultProfile);
-      localStorage.setItem("manu_ai_profile", JSON.stringify(defaultProfile));
+      alert("System not connected to authentication service.");
     }
   };
 
@@ -287,22 +285,7 @@ export default function App() {
         alert(`Signup failed: ${err.message || err}`);
       }
     } else {
-      const initialProfile: UserProfile = {
-        name: signupName,
-        fatherName: "",
-        dob: "",
-        gender: "",
-        address: "",
-        district: "",
-        state: "",
-        pincode: "",
-        phone: "",
-        email: signupEmail
-      };
-      setProfile(initialProfile);
-      localStorage.setItem("manu_ai_profile", JSON.stringify(initialProfile));
-      setIsLoggedIn(true);
-      localStorage.setItem("manu_ai_logged", "true");
+      alert("System not connected to authentication service.");
     }
   };
 
@@ -431,8 +414,7 @@ export default function App() {
           rawInput: mergedInput,
           templateName,
           profile,
-          language,
-          engine: aiEngine,
+          language: draftLanguage,
         }),
       });
 
@@ -485,7 +467,6 @@ export default function App() {
       setRawText("");
       setSelectedTemplateId(null);
       setEvidenceImages([]);
-      setProblemImages([]);
       setMissingFields([]);
       setMissingAnswers({});
       setShowMissingFieldsForm(false);
@@ -502,15 +483,15 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-                templateId: selectedTemplateId || "",
-                title: generatedTitle,
-                subject: generatedSubject,
-                body: generatedBody,
-                profile,
-                evidenceImages,
-                problemImages,
-              }),
-            });
+          templateId: selectedTemplateId || "",
+          title: generatedTitle,
+          subject: generatedSubject,
+          body: generatedBody,
+          profile,
+          evidenceImages,
+          problemImages,
+        }),
+      });
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -747,7 +728,7 @@ export default function App() {
                 profile: complaint.profile,
                 date: new Date(complaint.createdAt).toLocaleDateString("en-IN", { dateStyle: "long" }),
                 evidenceImages: complaint.evidenceImages || [],
-                problemImages: complaint.problemImages || [],
+                problemImages: complaint.problemImages || []
               }),
             });
 
@@ -832,7 +813,7 @@ export default function App() {
                       landingTab === "about" ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500 dark:text-slate-400 hover:text-indigo-600"
                     }`}
                   >
-                    About Initiative
+                    About
                   </button>
                 </nav>
 
@@ -915,7 +896,7 @@ export default function App() {
                           onClick={() => setLandingTab("signup")}
                           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-lg hover:shadow-indigo-500/25 transition-all active:scale-95"
                         >
-                          <span>Start Drafting Free</span>
+                          <span>Start</span>
                           <ArrowRight className="h-4 w-4" />
                         </button>
                         <button
@@ -928,7 +909,7 @@ export default function App() {
                           }}
                           className="flex items-center gap-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl transition-all shadow-sm active:scale-95"
                         >
-                          <span>Explore Sandbox Demo</span>
+                          <span>Explore Demo</span>
                         </button>
                       </div>
                     </div>
@@ -1139,7 +1120,7 @@ export default function App() {
                           Citizen Authentication
                         </h2>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-sans text-center">
-                          Sign in securely to generate complaints and view records
+                          Sign In
                         </p>
                       </div>
 
@@ -1166,6 +1147,7 @@ export default function App() {
                             <input
                               type="password"
                               required
+                              autoComplete="current-password"
                               value={loginPassword}
                               onChange={(e) => setLoginPassword(e.target.value)}
                               placeholder="••••••••"
@@ -1179,7 +1161,7 @@ export default function App() {
                           type="submit"
                           className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-xs uppercase tracking-wider shadow-md transition-colors"
                         >
-                          <span>Proceed to Citizen Portal</span>
+                          <span>Sign In</span>
                           <ArrowRight className="h-4 w-4" />
                         </button>
                       </form>
@@ -1220,7 +1202,7 @@ export default function App() {
                             d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43A11.93 11.93 0 0 0 1.4 6.51l4 3.18c.93-2.8 3.53-4.94 6.6-4.94z"
                           />
                         </svg>
-                        <span>Single Sign On (Google Auth)</span>
+                        <span>Sign On</span>
                       </button>
 
                       <div className="mt-4 text-center text-xs">
@@ -1252,13 +1234,13 @@ export default function App() {
                           Citizen Registration
                         </h2>
                         <p className="text-xs text-slate-500 dark:text-slate-400 font-sans text-center">
-                          Create an account to securely persist identity details
+                          Create an account
                         </p>
                       </div>
 
                       <form onSubmit={handleSignup} className="space-y-4">
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Complainant Full Name</label>
+                          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Full Name</label>
                           <input
                             type="text"
                             required
@@ -1282,10 +1264,11 @@ export default function App() {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Secure Password</label>
+                          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Password</label>
                           <input
                             type="password"
                             required
+                            autoComplete="new-password"
                             value={signupPassword}
                             onChange={(e) => setSignupPassword(e.target.value)}
                             placeholder="••••••••"
@@ -1297,7 +1280,7 @@ export default function App() {
                           type="submit"
                           className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-xs uppercase tracking-wider shadow-md transition-colors"
                         >
-                          <span>Complete Citizen Registration</span>
+                          <span>Sign Up</span>
                         </button>
                       </form>
 
@@ -1314,19 +1297,9 @@ export default function App() {
 
             {/* Elegant minimalist landing footer */}
             <footer className="bg-white dark:bg-[#070b12] border-t border-slate-200 dark:border-slate-800/80 transition-colors shrink-0">
-              <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-3">
-                  <img src={manuAiLogo} alt="MANU AI Logo" className="w-7 h-7 rounded-lg object-cover border border-indigo-500/20 shadow-sm" referrerPolicy="no-referrer" />
-                  <span className="font-logo tracking-tight font-black text-lg bank-icon-gradient">MANU AI</span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-sans max-w-md text-center md:text-right">
-                  Citizen-centric administrative auxiliary platform transforming verbal raw complaints into highly formatted, legally structured representation documents.
-                </p>
-              </div>
-              
+                          
               <div className="border-t border-slate-200 dark:border-slate-800/60 px-6 py-4 bg-slate-50 dark:bg-[#04060b]">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] font-bold text-slate-500 dark:text-slate-400 font-sans">
-                  <span className="uppercase tracking-wider">Official Grievance Support — Cognitive Citizen Initiative</span>
                   <span className="uppercase tracking-wider">© {new Date().getFullYear()} MANU AI Services • All Rights Reserved</span>
                 </div>
               </div>
@@ -1404,9 +1377,9 @@ export default function App() {
                     id="logout-btn"
                     onClick={handleLogout}
                     title="Logout from platform"
-                    className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider"
+                    className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider ml-1"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-3 w-3" />
                     <span className="hidden sm:inline">Logout</span>
                   </button>
                 </div>
@@ -1450,23 +1423,35 @@ export default function App() {
             {/* Core Application Stage */}
             <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6">
               
-              {/* Force profile notification */}
-              {!profile && activeTab === "draft" && (
-                <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-400 rounded-xl p-4">
-                  <Info className="h-5 w-5 shrink-0 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-semibold">Profile Setup Required</p>
-                    <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
-                      To dynamically map official placeholders in legal documents, please complete your Citizen Profile.
+              {/* Profile recommendation notification (non-blocking, dismissible) */}
+              {!profile && activeTab === "draft" && !profileBannerDismissed && (
+                <div className="flex items-start gap-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/50 text-indigo-800 dark:text-indigo-300 rounded-xl p-4">
+                  <Info className="h-5 w-5 shrink-0 mt-0.5 text-indigo-500" />
+                  <div className="flex-1 text-sm">
+                    <p className="font-semibold">Citizen Profile Recommended</p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">
+                      Complete your profile to auto-fill your name, address, and contact details in generated documents. Without it, placeholder text like <code className="font-mono bg-indigo-100 dark:bg-indigo-900/50 px-1 rounded">[Your Name]</code> will be used — you can still use all features now.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("profile")}
-                      className="mt-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-                    >
-                      <span>Set up Profile Now</span>
-                      <ChevronRight className="h-3 w-3" />
-                    </button>
+                    <div className="flex items-center gap-4 mt-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("profile")}
+                        className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                      >
+                        <span>Set up Profile Now</span>
+                        <ChevronRight className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          localStorage.setItem("manu_ai_profile_skip", "true");
+                          setProfileBannerDismissed(true);
+                        }}
+                        className="text-xs font-medium text-indigo-500/70 dark:text-indigo-500/60 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                      >
+                        Skip for now
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1489,16 +1474,18 @@ export default function App() {
                           className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors focus:outline-none cursor-pointer ${
                             draftStep === 1
                               ? "text-indigo-600 dark:text-indigo-400 font-black"
+                              : draftStep > 1 
+                              ? "text-emerald-600 dark:text-emerald-400"
                               : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                           }`}
                         >
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
-                            draftStep === 1 ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-300 dark:border-slate-700 text-slate-400"
+                            draftStep === 1 ? "bg-indigo-600 text-white border-indigo-600" : draftStep > 1 ? "bg-emerald-500 text-white border-emerald-500" : "border-slate-300 dark:border-slate-700 text-slate-400"
                           }`}>1</span>
                           <span className="hidden sm:inline">Select Template</span>
                         </button>
                         
-                        <div className="h-0.5 w-12 bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                        <div className={`h-1 w-12 sm:w-24 rounded-full shrink-0 ${draftStep > 1 ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-800"}`}></div>
 
                         <button
                           type="button"
@@ -1507,18 +1494,20 @@ export default function App() {
                           className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors focus:outline-none ${
                             draftStep === 2
                               ? "text-indigo-600 dark:text-indigo-400 font-black"
+                              : draftStep > 2
+                              ? "text-emerald-600 dark:text-emerald-400 cursor-pointer"
                               : selectedTemplateId
                               ? "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
                               : "text-slate-300 dark:text-slate-700 cursor-not-allowed"
                           }`}
                         >
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
-                            draftStep === 2 ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-300 dark:border-slate-700 text-slate-400"
+                            draftStep === 2 ? "bg-indigo-600 text-white border-indigo-600" : draftStep > 2 ? "bg-emerald-500 text-white border-emerald-500" : "border-slate-300 dark:border-slate-700 text-slate-400"
                           }`}>2</span>
-                          <span className="hidden sm:inline">Voiceover & Details</span>
+                          <span className="hidden sm:inline">Voice & Details</span>
                         </button>
 
-                        <div className="h-0.5 w-12 bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                        <div className={`h-1 w-12 sm:w-24 rounded-full shrink-0 ${draftStep > 2 ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-800"}`}></div>
 
                         <button
                           type="button"
@@ -1535,7 +1524,7 @@ export default function App() {
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${
                             draftStep === 3 ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-300 dark:border-slate-700 text-slate-400"
                           }`}>3</span>
-                          <span className="hidden sm:inline">Draft Preview</span>
+                          <span className="hidden sm:inline">Review & Download</span>
                         </button>
                       </div>
                     </div>
@@ -1663,58 +1652,54 @@ export default function App() {
                               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col gap-4">
                                 <span className="text-[10px] uppercase tracking-wider font-bold text-indigo-600 dark:text-indigo-400 block">Dictation & Description</span>
                                 
-                                <AudioRecorder
-                                  onTranscriptComplete={setRawText}
-                                  language={language}
-                                  setLanguage={setLanguage}
-                                />
+                                <Suspense fallback={<div className="h-24 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-xl" />}>
+                                  <AudioRecorder
+                                    onTranscriptComplete={setRawText}
+                                    language={language}
+                                    setLanguage={setLanguage}
+                                  />
+                                </Suspense>
 
                                 {/* Document Output Language Selection Button */}
                                 <div className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-900 rounded-xl p-4 space-y-2.5">
                                   <div className="flex items-center justify-between">
                                     <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                                      Draft Language Selection
+                                      Document Draft Language
                                     </label>
-                                    <span className="text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900">
-                                      AI Draft Language
-                                    </span>
+                                    
                                   </div>
                                   <div className="grid grid-cols-2 gap-3">
                                     <button
                                       type="button"
-                                      onClick={() => setLanguage("English")}
+                                      onClick={() => setDraftLanguage("English")}
                                       className={`py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                                        language === "English"
+                                        draftLanguage === "English"
                                           ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/15"
                                           : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"
                                       }`}
                                     >
-                                      {language === "English" && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                                      {draftLanguage === "English" && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
                                       English Draft
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => setLanguage("Tamil")}
+                                      onClick={() => setDraftLanguage("Tamil")}
                                       className={`py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                                        language === "Tamil"
+                                        draftLanguage === "Tamil"
                                           ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/15"
                                           : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"
                                       }`}
                                     >
-                                      {language === "Tamil" && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                                      {draftLanguage === "Tamil" && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
                                       தமிழ் வரைவு (Tamil)
                                     </button>
                                   </div>
-                                  <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
-                                    {language === "Tamil" 
-                                      ? "அனைத்து வரிகளும் மற்றும் ஆவணமும் தூய தமிழில் எழுதப்படும்." 
-                                      : "The entire drafted complaint, subject, and letters will be written in highly polished formal English."}
-                                  </p>
+                                  
                                 </div>
 
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                    Detailed Raw Description
+                                    Complaint Details
                                   </label>
                                   <textarea
                                     id="raw-text-textarea"
@@ -1730,27 +1715,23 @@ export default function App() {
 
                             {/* Uploaders right */}
                             <div className="lg:col-span-6 space-y-6">
-                              {/* Component 3: Problem Image Uploader */}
                               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                                <ProblemImageUploader onImagesChange={setProblemImages} />
-                              </div>
-
-                              {/* Component 4: Supporting Evidence Uploader */}
-                              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                                <ImageUploader onImagesChange={setEvidenceImages} />
+                                <Suspense fallback={<div className="h-32 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-xl" />}>
+                                  <ImageUploader onImagesChange={setEvidenceImages} maxFiles={6} />
+                                </Suspense>
                               </div>
                             </div>
                           </div>
 
                           {/* Back and Generate Buttons */}
-                          <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
+                          <div className="sticky bottom-4 z-10 mx-auto w-full max-w-4xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-6 py-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl flex items-center justify-between">
                             <button
                               type="button"
                               onClick={() => setDraftStep(1)}
                               className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                             >
                               <ChevronLeft className="h-4 w-4" />
-                              <span>Back to Templates</span>
+                              <span className="hidden sm:inline">Back to Templates</span>
                             </button>
 
                             <button
@@ -1761,7 +1742,7 @@ export default function App() {
                               className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-xs tracking-wider uppercase shadow-sm transition-all active:scale-95 cursor-pointer ${
                                 isGenerating || isAnalyzingDetails || !rawText.trim()
                                   ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed border border-slate-200 dark:border-slate-800"
-                                  : "bg-indigo-600 hover:bg-indigo-500 text-white hover:shadow-indigo-500/20"
+                                  : "bg-indigo-600 hover:bg-indigo-500 text-white hover:shadow-indigo-500/20 shadow-lg"
                               }`}
                             >
                               <Sparkles className="h-4.5 w-4.5 text-indigo-300 animate-pulse" />
@@ -1931,13 +1912,7 @@ export default function App() {
                                       {generatedBody || "The drafted statement outlining your precise petition details, corrective demands, and representation clauses."}
                                     </p>
 
-                                    {/* Attached problem images preview count */}
-                                    {problemImages.length > 0 && (
-                                      <div className="mt-4 p-2 bg-indigo-50/60 border border-indigo-100 rounded font-sans text-[10px] text-indigo-800 flex items-center gap-1.5">
-                                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                        <span><b>Problem Images Embedded:</b> {problemImages.length} photographic proof image(s) attached (Site & Area).</span>
-                                      </div>
-                                    )}
+
 
                                     {/* Attached supporting evidence preview count */}
                                     {evidenceImages.length > 0 && (
@@ -1983,7 +1958,6 @@ export default function App() {
                                 setRawText("");
                                 setSelectedTemplateId(null);
                                 setEvidenceImages([]);
-                                setProblemImages([]);
                                 setDraftStep(1);
                                 setShowEditor(false);
                               }}
@@ -2006,7 +1980,9 @@ export default function App() {
                     exit={{ opacity: 0, y: -5 }}
                     className="max-w-2xl mx-auto w-full"
                   >
-                    <ProfileForm initialProfile={profile} onProfileSave={handleProfileSave} />
+                    <Suspense fallback={<div className="h-64 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-2xl" />}>
+                      <ProfileForm initialProfile={profile} onProfileSave={handleProfileSave} />
+                    </Suspense>
                   </motion.div>
                 )}
 
@@ -2018,7 +1994,9 @@ export default function App() {
                     exit={{ opacity: 0, y: -5 }}
                     className="w-full"
                   >
-                    <ComplaintHistory onSelectComplaint={setSelectedComplaintReview} />
+                    <Suspense fallback={<div className="h-64 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-2xl" />}>
+                      <ComplaintHistory onSelectComplaint={setSelectedComplaintReview} />
+                    </Suspense>
                   </motion.div>
                 )}
               </AnimatePresence>

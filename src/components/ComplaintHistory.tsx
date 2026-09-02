@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 const apiUrl = (p: string) => { const base = API_BASE.replace(/\/$/, ""); return `${base}${p.startsWith("/") ? p : `/${p}`}`; };
-import { Search, Calendar, FileText, ArrowDownToLine, Trash2, Eye, ExternalLink, Clock, FolderGit2 } from "lucide-react";
+import Search from "lucide-react/dist/esm/icons/search";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import ArrowDownToLine from "lucide-react/dist/esm/icons/arrow-down-to-line";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import FolderGit2 from "lucide-react/dist/esm/icons/folder-git-2";
 import { GeneratedDocument } from "../types";
 
 interface ComplaintHistoryProps {
@@ -80,7 +85,7 @@ export default function ComplaintHistory({ onSelectComplaint }: ComplaintHistory
             Citizen Grievance Records
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            View, review, and download historically generated legal complaint drafts.
+            View historically generated legal complaint drafts.
           </p>
         </div>
 
@@ -111,7 +116,7 @@ export default function ComplaintHistory({ onSelectComplaint }: ComplaintHistory
             No Records Found
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-            {search ? "No matches found for your filter." : "You haven't generated any complaints yet. Start dictating a petition in the Generator."}
+            {search ? "No matches found for your filter." : "You haven't generated any complaints yet."}
           </p>
         </div>
       ) : (

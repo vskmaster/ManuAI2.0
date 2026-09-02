@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Upload, X, Image as ImageIcon, AlertCircle } from "lucide-react";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import X from "lucide-react/dist/esm/icons/x";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
 
 interface ImageUploaderProps {
   onImagesChange: (base64Images: string[]) => void;
@@ -90,11 +92,8 @@ export default function ImageUploader({ onImagesChange, maxFiles = 3 }: ImageUpl
     <div id="image-uploader-module" className="space-y-4">
       <div>
         <h3 className="font-display font-semibold text-slate-900 dark:text-slate-100 text-sm mb-1">
-          Attach Supporting Evidence
+          Upload Photos & Evidence
         </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Upload up to {maxFiles} images (photos of incident, location, damage or documentation) to embed into your official PDF.
-        </p>
       </div>
 
       {error && (

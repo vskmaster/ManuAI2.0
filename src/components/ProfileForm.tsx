@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { User, Mail, Phone, MapPin, Calendar, Heart, Save, AlertCircle, ShieldCheck } from "lucide-react";
+import User from "lucide-react/dist/esm/icons/user";
+import Mail from "lucide-react/dist/esm/icons/mail";
+import Phone from "lucide-react/dist/esm/icons/phone";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Heart from "lucide-react/dist/esm/icons/heart";
+import Save from "lucide-react/dist/esm/icons/save";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
 import { UserProfile } from "../types";
 
 interface ProfileFormProps {

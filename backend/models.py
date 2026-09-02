@@ -2,6 +2,10 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from datetime import datetime
 
+class AudioTranscribeRequest(BaseModel):
+    audio_base64: str = Field(..., description="Base64 encoded audio string")
+    language: str = Field("English", description="Target language")
+
 class UserProfileSchema(BaseModel):
     name: str = Field(..., description="Full Name of the citizen")
     fatherName: str = Field(..., description="Father or Spouse Name")

@@ -1,4 +1,10 @@
-import { Shield, Users, FileText, CalendarOff, UserMinus, HeartCrack, ChevronRight } from "lucide-react";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Users from "lucide-react/dist/esm/icons/users";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import CalendarOff from "lucide-react/dist/esm/icons/calendar-off";
+import UserMinus from "lucide-react/dist/esm/icons/user-minus";
+import HeartCrack from "lucide-react/dist/esm/icons/heart-crack";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import { DocumentTemplate } from "../types";
 
 export const templates: DocumentTemplate[] = [
@@ -6,28 +12,28 @@ export const templates: DocumentTemplate[] = [
     id: "police",
     name: "Police Complaint",
     icon: "Shield",
-    description: "Legal complaint filed with local law enforcement (theft, physical harassment, cybercrime, public nuisance).",
+    description: "Legal complaint filed with local law enforcement.",
     placeholders: ["{{name}}", "{{address}}", "{{phone}}", "{{subject}}", "{{body}}", "{{date}}"],
   },
   {
     id: "public",
     name: "Public Grievance",
     icon: "Users",
-    description: "Official public petition filed with district administration, municipality, or collectors (roads, water, sewage, electricity).",
+    description: "Official public petition filed with district administration.",
     placeholders: ["{{name}}", "{{address}}", "{{phone}}", "{{subject}}", "{{body}}", "{{date}}"],
   },
   {
     id: "general",
     name: "General Complaint",
     icon: "FileText",
-    description: "A standard legal petition or consumer notice to private corporations or service providers.",
+    description: "A standard legal petition to private corporations or service providers.",
     placeholders: ["{{name}}", "{{address}}", "{{phone}}", "{{subject}}", "{{body}}", "{{date}}"],
   },
   {
     id: "leave",
     name: "Leave Letter",
     icon: "CalendarOff",
-    description: "Formal job/school leave application due to illness, emergency, or family obligations.",
+    description: "Formal job/school leave application due to illness or  emergency.",
     placeholders: ["{{name}}", "{{phone}}", "{{subject}}", "{{body}}", "{{date}}"],
   },
   {
@@ -41,7 +47,7 @@ export const templates: DocumentTemplate[] = [
     id: "divorce",
     name: "Divorce Notice",
     icon: "HeartCrack",
-    description: "Official pre-litigation legal notification sent between spouses regarding legal separation.",
+    description: "Official pre-litigation legal notification sent regarding legal separation.",
     placeholders: ["{{name}}", "{{address}}", "{{phone}}", "{{subject}}", "{{body}}", "{{date}}"],
   },
 ];

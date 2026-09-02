@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { Mic, Square, Volume2, AlertCircle, Languages } from "lucide-react";
+import Mic from "lucide-react/dist/esm/icons/mic";
+import Square from "lucide-react/dist/esm/icons/square";
+import Volume2 from "lucide-react/dist/esm/icons/volume-2";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Languages from "lucide-react/dist/esm/icons/languages";
 
 interface AudioRecorderProps {
   onTranscriptComplete: (text: string) => void;
@@ -21,82 +25,13 @@ export default function AudioRecorder({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-
-  // Initialize Speech Recognition
-  useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setRecognitionError(
-        "Web Speech API is not supported in this browser. Please type your complaint details directly, or use Google Chrome/Microsoft Edge."
-      );
-      return;
-    }
-
-    const rec = new SpeechRecognition();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = language === "Tamil" ? "ta-IN" : "en-US";
-
-    rec.onresult = (event: any) => {
-      let interimTranscript = "";
-      let finalTranscript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
-        }
-      }
-
-      const activeTranscript = finalTranscript || interimTranscript;
-      setTranscript(activeTranscript);
-      onTranscriptComplete(activeTranscript);
-    };
-
-    rec.onerror = (event: any) => {
-      if (event.error === "aborted" || event.error === "no-speech") {
-        // Benign state when user pauses or stops speaking, handled silently
-        return;
-      }
-      console.error("Speech recognition error", event.error);
-      if (event.error === "not-allowed") {
-        setRecognitionError("Microphone permission denied. Please enable microphone access.");
-      } else {
-        setRecognitionError(`Speech recognition error: ${event.error}`);
-      }
-    };
-
-    rec.onend = () => {
-      if (isRecording) {
-        // Auto-restart if it cuts out while we are in recording state
-        try {
-          rec.start();
-        } catch (e) {}
-      }
-    };
-
-    recognitionRef.current = rec;
-  }, [language, isRecording, onTranscriptComplete]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   // Handle Recording start/stop
   const startRecording = async () => {
     setRecognitionError("");
     setTranscript("");
     setIsRecording(true);
-
-    // Start browser Speech Recognition
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.error("Failed to start speech recognition", e);
-      }
-    }
-
-    // Initialize Audio Visualizer
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -110,20 +45,89 @@ export default function AudioRecorder({
       source.connect(analyser);
       analyserRef.current = analyser;
 
+      // Setup Web Speech API for real-time dictation
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = language === "English" ? "en-IN" : "ta-IN";
+
+        recognition.onresult = (event: any) => {
+          let interimTranscript = "";
+          let finalTranscript = "";
+
+          for (let i = 0; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+          
+          setTranscript(finalTranscript + interimTranscript);
+        };
+
+        recognition.onerror = (event: any) => {
+          // 'network' errors from Web Speech API mean Chrome can't reach
+          // Google's speech servers — common on HTTP or restricted networks.
+          // 'aborted' errors happen during normal stop() calls — ignore them.
+          if (event.error === "aborted") return;
+          
+          if (event.error === "network") {
+            console.warn("Speech recognition network error — browser speech service unreachable. Use the text box to type your complaint instead.");
+            setRecognitionError(
+              "Voice dictation unavailable — your browser's speech service could not connect. " +
+              "Please type your complaint in the text box below, or try using HTTPS / a different network."
+            );
+          } else if (event.error === "not-allowed") {
+            setRecognitionError("Microphone access denied. Please allow microphone permissions and try again.");
+          } else if (event.error === "no-speech") {
+            // No speech detected is not a real error, just informational
+            console.log("No speech detected");
+          } else {
+            console.error("Speech recognition error:", event.error);
+            setRecognitionError(`Speech recognition error: ${event.error}`);
+          }
+        };
+
+        recognition.onend = () => {
+          // Auto-restart recognition if still recording (it can stop on its own)
+          if (isRecording && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              // Already started or stopped — ignore
+            }
+          }
+        };
+
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Recognition start error", e);
+        }
+      } else {
+        setRecognitionError("Browser does not support Web Speech API.");
+      }
+      
       drawWaveform();
     } catch (err) {
       console.error("Microphone access failed for visualizer", err);
       setRecognitionError("Could not access microphone. Please check system permissions.");
+      setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
     setIsRecording(false);
+    
     if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {}
+      recognitionRef.current.stop();
     }
+    
+    // Transcript is committed via a useEffect when isRecording becomes false
 
     // Stop streams & cleanup audio context
     if (streamRef.current) {
@@ -140,14 +144,8 @@ export default function AudioRecorder({
       cancelAnimationFrame(animationFrameRef.current);
     }
 
-    // Clear Canvas visualizer
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    }
+    // We do not clear the canvas here because it gets unmounted by React when isRecording is false.
+    // If we try to access canvas.getContext here when unmounted, it's null.
   };
 
   // Render the sound visualizer wave
@@ -163,6 +161,9 @@ export default function AudioRecorder({
     const dataArray = new Uint8Array(bufferLength);
 
     const draw = () => {
+      // Check if we should stop drawing
+      if (!canvasRef.current) return;
+      
       animationFrameRef.current = requestAnimationFrame(draw);
       analyser.getByteTimeDomainData(dataArray);
 
@@ -220,6 +221,16 @@ export default function AudioRecorder({
     };
   }, []);
 
+  // Safely commit the transcript to the parent when recording stops
+  useEffect(() => {
+    if (!isRecording && transcript.trim()) {
+      const timer = setTimeout(() => {
+        onTranscriptComplete(transcript.trim());
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [isRecording, transcript]);
+
   return (
     <div id="audio-recorder-module" className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-inner">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -228,7 +239,7 @@ export default function AudioRecorder({
             <Volume2 className="h-5 w-5 text-blue-400" />
           </div>
           <div>
-            <h3 className="font-display font-semibold text-slate-100 text-sm">Voice Dictation Hub</h3>
+            <h3 className="font-display font-semibold text-slate-100 text-sm">Speak Your Complaint</h3>
             <p className="text-xs text-slate-400">Speak naturally; MANU AI translates and structures it</p>
           </div>
         </div>
@@ -281,8 +292,7 @@ export default function AudioRecorder({
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-xs text-slate-500">
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-2 h-2 rounded-full bg-slate-700 animate-pulse" />
-              <span>Waveform Idle</span>
+              
             </div>
             <span>Press start to begin speech-to-text</span>
           </div>
